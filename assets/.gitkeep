@@ -1,0 +1,2 @@
+Drop your test images into this directory. The 50% milestone demo expects assets/sample.png,
+but main.py also accepts any path on the command line, e.g.  python main.py my_photo.jpg.
