@@ -8,3 +8,9 @@ venv/
 env/
 test.html
 make_pdf.py
+
+*.csv
+*_recon_*.png
+*_comparison.png
+*_recon_*.jpg
+*_comparison.jpg

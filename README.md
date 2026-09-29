@@ -175,7 +175,7 @@ Typical measured values (the colour sample in `assets/sample_color.png`):
 ## Project structure (formal spec)
 
 The formal specification lives in
-[`.trae/specs/dct-image-compression/`](.trae/specs/dct-image-compression/):
+[`requirements/specs/dct-image-compression/`](requirements/specs/dct-image-compression/):
 
 - `spec.md` — requirements, math, and 50% milestone definition.
 - `tasks.md` — the 12-task build list (all checked off).
