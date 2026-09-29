@@ -85,6 +85,8 @@ Open an image, drag the quality slider (1–100), and watch the right-hand
 preview and metrics panel update live. Buttons save the reconstruction and a
 4-up comparison grid.
 
+![Tkinter GUI Screenshot](gui_screenshot.png)
+
 > The GUI requires Tk. On a stock Windows / macOS Python install it just
 > works. On minimal Linux distributions install `python3-tk`.
 
