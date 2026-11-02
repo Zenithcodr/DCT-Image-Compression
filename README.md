@@ -10,7 +10,33 @@ storage-vs-quality trade-off via MSE, PSNR, and compression ratio.
 
 The math (DCT, IDCT, block splitting, quantization tables, MSE, PSNR) is all
 implemented from scratch in NumPy. We do not call `scipy.fft.dct` so the
-signal-processing chain stays visible for the live demo.
+signal-processing chain stays visible for the live demo and classroom presentation.
+
+---
+
+## 🎓 Course Presentation & Viva Defense: The Educational Pop-up Window
+
+To make the project 100% explainable to your course instructor and examiners, the app features an interactive **Algorithms, Flowchart & Numerical Calculations Pop-up Window**:
+
+![GUI Screenshot](gui_screenshot.png)
+
+Simply click **`[📘 Flowchart, Algorithms & Math (Pop-up)]`** in the top bar or **`[🔬 View Algorithms & Calculations]`** in the action bar. The pop-up opens with 5 dedicated interactive tabs:
+
+1. **📋 Tab 1: Pipeline Flowchart:** Complete end-to-end signal processing architecture (Level shifting → Block Partitioning → 2-D DCT → Psychovisual Quantization → Zig-zag/RLE → Dequantization → IDCT → Reconstruction → Error Metrics).
+2. **⚙️ Tab 2: Step-by-Step Algorithms:** Formal DIP algorithms with inputs, outputs, mathematical properties, and pseudocode (DCT-II, Quantization table scaling, Zig-zag traversal, IDCT-III, BT.601 color transform).
+3. **📐 Tab 3: Mathematical Formulas:** Clean reference of all governing equations with symbol definitions ($F(u, v)$ summation, orthonormal basis $D$, $Q_{50}$ standard table, libjpeg scaling function $S(Q)$, $MSE$, $PSNR$, $CR$, and $BPP$).
+4. **🔢 Tab 4: Live 8×8 Numerical Walkthrough:** Step-by-step numerical calculations on an actual 8×8 block (switchable between the classic Gonzalez & Woods textbook block and actual blocks from your loaded image). Shows:
+   - Step 1: Original pixel intensities ($8 \times 8$)
+   - Step 2: Level-shifted values ($f - 128$)
+   - Step 3: 2-D DCT frequency coefficients with DC value and % energy compaction
+   - Step 4: Scaled quantization table $Q_{scaled}$ for the active $Q$
+   - Step 5: Quantized integers $F_Q$ with exact count and percentage of zeros
+   - Step 6: 1D zig-zag array and Run-Length Encoded (run, val) pairs
+   - Step 7: Dequantized coefficients $F'_Q$
+   - Step 8: Reconstructed pixels $f'_{recon}$
+   - Step 9: Residual error matrix, local block MSE, and local block PSNR
+5. **📊 Tab 5: Image Metrics Derivation:** Full step-by-step arithmetic derivation of how total dimensions, raw bytes, compressed bytes, CR, BPP, MSE, and PSNR were computed for the whole image.
+6. **💾 Academic Report Export:** One-click button to export the entire mathematical and numerical analysis to a submission-ready `.txt` file!
 
 ---
 
@@ -18,10 +44,11 @@ signal-processing chain stays visible for the live demo.
 
 ```
 .
-├── dct_core/                  # DCT/IDCT math + quantization
+├── dct_core/                  # DCT/IDCT math + quantization + educational core
 │   ├── dct.py                 #   from-scratch 8×8 DCT/IDCT (single + batch)
 │   ├── blocks.py              #   split image into 8×8 blocks, merge back
-│   └── quant.py               #   JPEG luminance table, Q-scaling, quantize/dequantize
+│   ├── quant.py               #   JPEG luminance table, Q-scaling, quantize/dequantize
+│   └── explanation.py         #   flowcharts, algorithms, formulas & live block calculations
 ├── quality/                   # Quality metrics
 │   └── metrics.py             #   MSE, PSNR, compression ratio, zig-zag byte estimator
 ├── pipeline/                  # End-to-end orchestration
@@ -29,15 +56,17 @@ signal-processing chain stays visible for the live demo.
 │   └── pipeline.py            #   grayscale + colour compress_image entry point
 ├── io_utils/                  # Image I/O + 4-up comparison grid
 │   └── io.py
-├── app/                       # Tkinter GUI (optional, requires Tk)
-│   └── gui.py
+├── app/                       # Tkinter GUI (with live theory & calculations pop-up)
+│   ├── gui.py                 #   main desktop GUI
+│   └── theory_dialog.py       #   interactive educational pop-up window
 ├── benchmarks/                # Quality-vs-size sweep over Q values
 │   └── run_bench.py
-├── tests/                     # 24 unit + integration tests
+├── tests/                     # 32 unit + integration tests
 ├── assets/                    # sample images (drop your own photo here)
-├── main.py                    # CLI demo (single image)
+├── main.py                    # CLI demo (single image + --explain + --report)
 ├── requirements.txt
 ├── PROGRESS.md                # step-by-step easy-words diary
+├── Guide.md                   # viva preparation guide
 └── README.md                  # ← this file
 ```
 
@@ -59,21 +88,16 @@ python main.py my_photo.jpg                     # any image, default Q=75
 python main.py my_photo.jpg -q 10               # very compressed, visible blocks
 python main.py my_photo.jpg --no-color          # force grayscale pipeline
 python main.py my_photo.jpg --grid              # also write a 4-up comparison grid
+python main.py assets/sample.png -q 50 --explain # print flowchart, algorithms & numerical calculations
+python main.py assets/sample.png --report submission_report.txt # save complete academic report
 ```
 
-The console prints the full summary card (original size, compressed size,
+The console prints the summary card (original size, compressed size,
 compression ratio, MSE, PSNR) and saves `*_recon_q<Q>.png` next to the
 input. With `--grid` it also saves a 4-up montage `*_comparison.png` of
 `Original | Q=90 | Q=50 | Q=10`.
 
-### Benchmark sweep (CSV over Q values)
-
-```bash
-python -m benchmarks.run_bench assets/sample.png --qs 5 25 50 75 95 --out benchmarks/results.csv
-```
-
-Dumps one row per Q with `quality, channel, mse, psnr_db, compression_ratio,
-original_kb, compressed_kb`.
+With `--explain`, it prints the complete visual flowchart, algorithms, formulas, and 8x8 block calculations directly in the terminal for presentation during evaluation.
 
 ### Tkinter GUI
 
@@ -81,11 +105,8 @@ original_kb, compressed_kb`.
 python app/gui.py
 ```
 
-Open an image, drag the quality slider (1–100), and watch the right-hand
-preview and metrics panel update live. Buttons save the reconstruction and a
-4-up comparison grid.
-
-![Tkinter GUI Screenshot](gui_screenshot.png)
+Open an image, drag the quality slider (1–100), and watch the preview and metrics update live.
+Click **`[📘 Flowchart, Algorithms & Math (Pop-up)]`** to open the interactive educational window.
 
 > The GUI requires Tk. On a stock Windows / macOS Python install it just
 > works. On minimal Linux distributions install `python3-tk`.
@@ -96,9 +117,9 @@ preview and metrics panel update live. Buttons save the reconstruction and a
 python -m pytest tests/ -v
 ```
 
-24 unit + integration tests covering DCT round-trip, quantization error
-bounds, MSE/PSNR, the full grayscale pipeline, the colour pipeline,
-and PNG I/O round-trip.
+32 unit + integration tests covering DCT round-trip, quantization error
+bounds, MSE/PSNR, full grayscale and colour pipelines, numerical calculation
+walkthroughs, and GUI lifecycle.
 
 ---
 
@@ -159,6 +180,7 @@ PNG/ZIP wrapper on top.
 | MSE | `mean((original − reconstructed)²)` | Lower is better. |
 | PSNR | `10·log10(255² / MSE)` dB | Higher is better. `inf` for lossless. |
 | CR   | `original bytes / compressed bytes` | Higher is more compression. |
+| BPP  | `(compressed bytes * 8) / (W * H)` | Bits per pixel. |
 
 Typical measured values (the colour sample in `assets/sample_color.png`):
 
@@ -169,45 +191,6 @@ Typical measured values (the colour sample in `assets/sample_color.png`):
 | 50   |  5.88  |  96.83 | 28.27     | small visible artifacts|
 | 75   |  4.61  |  57.28 | 30.55     | nearly indistinguishable|
 | 95   |  2.33  |  39.56 | 32.16     | visually lossless      |
-
----
-
-## Project structure (formal spec)
-
-The formal specification lives in
-[`requirements/specs/dct-image-compression/`](requirements/specs/dct-image-compression/):
-
-- `spec.md` — requirements, math, and 50% milestone definition.
-- `tasks.md` — the 12-task build list (all checked off).
-- `checklist.md` — verification checkpoints.
-
-`PROGRESS.md` is the easy-words step-by-step diary of how the 50% and 100%
-milestones were built.
-
----
-
-## How to extend
-
-- **Chroma quantization at higher fidelity:** change `Q_chroma = Q // 2` in
-  `pipeline/pipeline.py` to `Q`.
-- **Real Huffman coding:** replace `estimate_compressed_size` in
-  `quality/metrics.py` with a Huffman pass to report actual bitstream size.
-- **YUV 4:2:0 chroma subsampling:** subsample Cb and Cr by 2× before
-  quantization, then upsample before YCbCr → RGB.
-- **Better entropy coding:** add a baseline-JPEG Huffman table for AC
-  coefficients and emit an actual `.jpg`-like byte stream.
-
----
-
-## How It Works Internally (Simply Explained)
-
-Real JPEG compression has two major halves: The **Signal Processing** (The Math) and the **Binary Encoding** (The File). This project focuses entirely on the Signal Processing half, allowing you to see exactly how the math works!
-
-1. **Color Conversion (YCbCr):** The human eye is very sensitive to brightness but bad at noticing tiny color changes. We separate the image into Brightness (Y) and Color (Cb, Cr) so we can compress the color more heavily.
-2. **Block Splitting:** The image is chopped into tiny 8x8 grids of pixels.
-3. **Discrete Cosine Transform (DCT):** Instead of looking at 64 individual pixels, DCT transforms them into **frequencies** (like sound waves). It groups the smooth, broad colors into the top-left and pushes the sharp, tiny details to the bottom-right.
-4. **Quantization (The Compression):** This is where the Quality (Q) slider comes in. The algorithm divides the DCT numbers by a standard table and rounds them down. All the tiny details (high frequencies) round down to **Zero**. By turning details into zeros, we throw them away and save massive amounts of space!
-5. **Reconstruction (IDCT):** To view the image again, we do the math in reverse. Because we rounded numbers to zero, the original detail is permanently lost, which causes the "blocky" artifacts you see at low Quality levels.
 
 ---
 

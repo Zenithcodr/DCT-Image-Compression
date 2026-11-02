@@ -8,6 +8,8 @@ Run from the project root:
     python main.py path/to/photo.png --q 75
     python main.py my_photo.jpg --color    # use YCbCr pipeline (default if input is RGB)
     python main.py my_photo.jpg --grid     # also save Original | Q=90 | Q=50 | Q=10 grid
+    python main.py assets/sample.png --explain # print flowchart, algorithms & numerical calculations
+    python main.py assets/sample.png --report report.txt # export full course evaluation report
 
 What this script does (the complete DIP signal-processing chain):
 
@@ -26,13 +28,24 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Tuple
+from typing import Optional
 
 import numpy as np
 from PIL import Image
 
+from dct_core.blocks import split_blocks
+from dct_core.explanation import (
+    calculate_block_steps,
+    format_block_walkthrough,
+    generate_full_academic_report,
+    get_algorithms_text,
+    get_formulas_text,
+    get_full_image_metrics_breakdown,
+    get_pipeline_flowchart,
+)
 from io_utils.io import load_image, make_comparison_grid, save_image
 from pipeline import compress_image
+from pipeline.color import rgb_to_ycbcr
 
 
 def _print_friendly_missing(path: str) -> None:
@@ -41,7 +54,15 @@ def _print_friendly_missing(path: str) -> None:
     print("     (any PNG / JPG / BMP; colour images are auto-converted)")
 
 
-def run(path: str, q: int, color: bool, grid: bool, fmt: str) -> int:
+def run(
+    path: str,
+    q: int,
+    color: bool,
+    grid: bool,
+    fmt: str,
+    explain: bool = False,
+    report_path: Optional[str] = None,
+) -> int:
     if not os.path.isfile(path):
         _print_friendly_missing(path)
         return 0
@@ -61,7 +82,6 @@ def run(path: str, q: int, color: bool, grid: bool, fmt: str) -> int:
 
     psnr_str = "inf" if result.psnr_val == float("inf") else f"{result.psnr_val:.2f} dB"
     h, w = img.shape[:2]
-    c = img.shape[2] if img.ndim == 3 else 1
     print("-" * 50)
     print("  DCT Image Compression")
     print("-" * 50)
@@ -89,6 +109,41 @@ def run(path: str, q: int, color: bool, grid: bool, fmt: str) -> int:
         grid_path = os.path.join(out_dir, f"{base}_comparison.{fmt}")
         make_comparison_grid(images, labels, grid_path, tile_size=256)
         print(f"  Saved 4-up comparison grid to: {grid_path}")
+
+    # Extract first 8x8 block for numerical walk-through
+    if is_color and img.ndim == 3:
+        y_ch = rgb_to_ycbcr(img)[..., 0]
+    else:
+        y_ch = img if img.ndim == 2 else img[..., 0]
+    blocks, _, _ = split_blocks(y_ch)
+    sample_block = np.clip(blocks[0], 0, 255).astype(np.uint8)
+    block_steps = calculate_block_steps(sample_block, quality=q)
+
+    if explain:
+        print("\n" + get_pipeline_flowchart())
+        print("\n" + get_algorithms_text())
+        print("\n" + get_formulas_text())
+        print("\n" + format_block_walkthrough(block_steps))
+        print("\n" + get_full_image_metrics_breakdown(
+            original_u8=img,
+            reconstructed_u8=result.reconstructed,
+            compressed_bytes=result.compressed_bytes,
+            quality=q,
+            is_color=is_color,
+        ))
+
+    if report_path:
+        full_report = generate_full_academic_report(
+            original_u8=img,
+            reconstructed_u8=result.reconstructed,
+            compressed_bytes=result.compressed_bytes,
+            quality=q,
+            is_color=is_color,
+            block_steps=block_steps,
+        )
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(full_report)
+        print(f"\n  Saved complete academic calculation report to: {report_path}")
 
     return 0
 
@@ -126,10 +181,31 @@ def main(argv=None) -> int:
         "--format", dest="format", type=str, choices=["png", "jpg"], default="png",
         help="Output image format (png or jpg). Default is png.",
     )
+    parser.add_argument(
+        "--explain", "--theory",
+        dest="explain",
+        action="store_true",
+        help="Print flowchart, algorithms, formulas and numerical block calculations.",
+    )
+    parser.add_argument(
+        "--report",
+        dest="report_path",
+        type=str,
+        default=None,
+        help="Export full academic calculations report to the specified file path.",
+    )
     parser.set_defaults(color=None)
     args = parser.parse_args(argv)
     color_flag = args.color if args.color is not None else True
-    return run(args.path, args.quality, color_flag, args.grid, args.format)
+    return run(
+        args.path,
+        args.quality,
+        color_flag,
+        args.grid,
+        args.format,
+        explain=args.explain,
+        report_path=args.report_path,
+    )
 
 
 if __name__ == "__main__":

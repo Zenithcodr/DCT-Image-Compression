@@ -5,7 +5,7 @@ Tkinter desktop app for the DCT compression demo.
 
 Layout:
     +---------------------------------------------------------+
-    |  [Open Image...]  Path: <shown>                         |
+    |  [Open Image...]  Path: <shown>    [📘 Flowchart & Math] |
     |  +--------------------+   +---------------------------+ |
     |  |                    |   |                           | |
     |  |   Original         |   |   Compressed @ Q = 75     | |
@@ -14,11 +14,14 @@ Layout:
     |  Quality: [====|===========]  Q=75                      |
     |  Size: 512 KB → 184 KB   CR: 2.78x                     |
     |  MSE: 17.42   PSNR: 35.7 dB                             |
-    |  [Save reconstruction]  [Save 4-up comparison grid]     |
+    |  [Save reconstruction]  [Save 4-up grid]  [🔬 Math Pop-up]|
     +---------------------------------------------------------+
 
 The original image is shown once. The right-hand preview is recomputed
 on every slider movement (with a small debounce so dragging is smooth).
+Clicking "Flowchart & Math" or "View Algorithms & Calculations" opens
+an interactive educational pop-up window detailing the complete DIP
+flowchart, algorithms, governing formulas, and live numerical calculations.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ from PIL import Image, ImageTk
 
 from io_utils.io import load_image, make_comparison_grid, save_image
 from pipeline import compress_image
+from .theory_dialog import TheoryCalculationDialog
 
 
 def _to_tk_image(arr: np.ndarray, size: int = 360) -> ImageTk.PhotoImage:
@@ -52,7 +56,7 @@ class DCTApp:
 
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("DCT Image Compression — Quality Analysis")
+        self.root.title("DCT Image Compression — Quality Analysis & DIP Theory")
         self.root.configure(bg="#f5f5f7")
 
         self.image_path: str | None = None
@@ -62,6 +66,7 @@ class DCTApp:
         self._tk_orig: ImageTk.PhotoImage | None = None
         self._tk_comp: ImageTk.PhotoImage | None = None
         self._pending_after: str | None = None
+        self._theory_dialog: TheoryCalculationDialog | None = None
 
         self._build_widgets()
 
@@ -73,13 +78,21 @@ class DCTApp:
         style.configure("Header.TLabel", font=("Segoe UI", 14, "bold"))
         style.configure("Metric.TLabel", font=("Consolas", 10))
         style.configure("TButton", padding=6)
+        style.configure("Accent.TButton", font=("Segoe UI", 9, "bold"), padding=6)
 
-        # Top bar: open + path
+        # Top bar: open + path + theory button
         top = ttk.Frame(self.root, padding=10)
         top.pack(side=tk.TOP, fill=tk.X)
         ttk.Button(top, text="Open Image...", command=self.on_open).pack(side=tk.LEFT)
         self.path_var = tk.StringVar(value="(no image loaded)")
         ttk.Label(top, textvariable=self.path_var, padding=(10, 0)).pack(side=tk.LEFT)
+
+        ttk.Button(
+            top,
+            text="📘 Flowchart, Algorithms & Math (Pop-up)",
+            style="Accent.TButton",
+            command=self.on_show_theory_popup,
+        ).pack(side=tk.RIGHT)
 
         # Preview row
         preview_row = ttk.Frame(self.root, padding=(10, 0))
@@ -100,8 +113,14 @@ class DCTApp:
         slider_row.pack(side=tk.TOP, fill=tk.X)
         ttk.Label(slider_row, text="Quality:").pack(side=tk.LEFT)
         self.q_var = tk.IntVar(value=75)
-        self.slider = ttk.Scale(slider_row, from_=1, to=100, orient=tk.HORIZONTAL,
-                                variable=self.q_var, command=self.on_slider_change)
+        self.slider = ttk.Scale(
+            slider_row,
+            from_=1,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.q_var,
+            command=self.on_slider_change,
+        )
         self.slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
         self.q_readout = ttk.Label(slider_row, text="Q = 75", width=8)
         self.q_readout.pack(side=tk.LEFT)
@@ -115,16 +134,33 @@ class DCTApp:
         # Action buttons
         actions = ttk.Frame(self.root, padding=10)
         actions.pack(side=tk.TOP, fill=tk.X)
-        ttk.Button(actions, text="Save Reconstruction",
-                   command=self.on_save_recon).pack(side=tk.LEFT)
-        ttk.Button(actions, text="Save 4-up Comparison Grid",
-                   command=self.on_save_grid).pack(side=tk.LEFT, padx=8)
-                   
-        ttk.Label(actions, text="Format:").pack(side=tk.LEFT, padx=(20, 4))
+        ttk.Button(
+            actions,
+            text="Save Reconstruction",
+            command=self.on_save_recon,
+        ).pack(side=tk.LEFT)
+        ttk.Button(
+            actions,
+            text="Save 4-up Comparison Grid",
+            command=self.on_save_grid,
+        ).pack(side=tk.LEFT, padx=8)
+
+        ttk.Label(actions, text="Format:").pack(side=tk.LEFT, padx=(16, 4))
         self.format_var = tk.StringVar(value="PNG")
-        self.format_dropdown = ttk.Combobox(actions, textvariable=self.format_var,
-                                            values=["PNG", "JPG"], width=5, state="readonly")
+        self.format_dropdown = ttk.Combobox(
+            actions,
+            textvariable=self.format_var,
+            values=["PNG", "JPG"],
+            width=5,
+            state="readonly",
+        )
         self.format_dropdown.pack(side=tk.LEFT)
+
+        ttk.Button(
+            actions,
+            text="🔬 View Algorithms & Calculations",
+            command=self.on_show_theory_popup,
+        ).pack(side=tk.LEFT, padx=12)
 
         ttk.Button(actions, text="Quit", command=self.root.destroy).pack(side=tk.RIGHT)
 
@@ -132,8 +168,10 @@ class DCTApp:
     def on_open(self) -> None:
         path = filedialog.askopenfilename(
             title="Choose an image",
-            filetypes=[("Images", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff"),
-                       ("All files", "*.*")],
+            filetypes=[
+                ("Images", "*.png *.jpg *.jpeg *.bmp *.tif *.tiff"),
+                ("All files", "*.*"),
+            ],
         )
         if not path:
             return
@@ -189,21 +227,70 @@ class DCTApp:
         )
         self.metrics_var.set(text)
 
+        # Synchronize open theory dialog in real-time
+        self._sync_theory_dialog_if_open()
+
+    def _sync_theory_dialog_if_open(self) -> None:
+        """Update open pop-up dialog with fresh results and slider position."""
+        if self._theory_dialog is not None:
+            try:
+                if self._theory_dialog.winfo_exists():
+                    self._theory_dialog.image_u8 = self.image_u8
+                    self._theory_dialog.is_color = self.is_color
+                    self._theory_dialog.quality = int(self.q_var.get())
+                    self._theory_dialog.q_var.set(int(self.q_var.get()))
+                    self._theory_dialog.last_result = getattr(self, "_last_result", None)
+                    self._theory_dialog._update_block_selection()
+                    self._theory_dialog.on_calculate_block()
+                    self._theory_dialog._refresh_metrics_tab()
+            except Exception:
+                pass
+
+    def on_show_theory_popup(self) -> None:
+        """Open or focus the theory, algorithms, flowchart, and numerical calculations dialog."""
+        last_res = getattr(self, "_last_result", None)
+        if self._theory_dialog is not None:
+            try:
+                if self._theory_dialog.winfo_exists():
+                    self._theory_dialog.image_u8 = self.image_u8
+                    self._theory_dialog.is_color = self.is_color
+                    self._theory_dialog.quality = int(self.q_var.get())
+                    self._theory_dialog.q_var.set(int(self.q_var.get()))
+                    self._theory_dialog.last_result = last_res
+                    self._theory_dialog._update_block_selection()
+                    self._theory_dialog._refresh_all_tabs()
+                    self._theory_dialog.deiconify()
+                    self._theory_dialog.lift()
+                    self._theory_dialog.focus_force()
+                    return
+            except Exception:
+                pass
+
+        self._theory_dialog = TheoryCalculationDialog(
+            parent=self.root,
+            image_u8=self.image_u8,
+            quality=int(self.q_var.get()),
+            is_color=self.is_color,
+            last_result=last_res,
+        )
+
     def on_save_recon(self) -> None:
         if not hasattr(self, "_last_result"):
             messagebox.showinfo("Nothing to save", "Open and compress an image first.")
             return
-        
+
         ext = self.format_var.get().lower()
         default = f"reconstruction.{ext}"
         if self.image_path:
             base = os.path.splitext(os.path.basename(self.image_path))[0]
             default = f"{base}_recon_q{self.q_var.get()}.{ext}"
-            
+
         filetypes = [("PNG", "*.png")] if ext == "png" else [("JPEG", "*.jpg *.jpeg")]
-        out = filedialog.asksaveasfilename(defaultextension=f".{ext}",
-                                           initialfile=default,
-                                           filetypes=filetypes)
+        out = filedialog.asksaveasfilename(
+            defaultextension=f".{ext}",
+            initialfile=default,
+            filetypes=filetypes,
+        )
         if not out:
             return
         path = save_image(self._last_result.reconstructed, out)
@@ -220,17 +307,19 @@ class DCTApp:
             res = compress_image(self.image_u8, quality=q)
             images.append(res.reconstructed)
             labels.append(f"Q = {q}")
-            
+
         ext = self.format_var.get().lower()
         default = f"comparison_grid.{ext}"
         if self.image_path:
             base = os.path.splitext(os.path.basename(self.image_path))[0]
             default = f"{base}_comparison.{ext}"
-            
+
         filetypes = [("PNG", "*.png")] if ext == "png" else [("JPEG", "*.jpg *.jpeg")]
-        out = filedialog.asksaveasfilename(defaultextension=f".{ext}",
-                                           initialfile=default,
-                                           filetypes=filetypes)
+        out = filedialog.asksaveasfilename(
+            defaultextension=f".{ext}",
+            initialfile=default,
+            filetypes=filetypes,
+        )
         if not out:
             return
         path = make_comparison_grid(images, labels, out, tile_size=256)
@@ -240,7 +329,7 @@ class DCTApp:
 def main() -> int:
     root = tk.Tk()
     DCTApp(root)
-    root.geometry("900x720")
+    root.geometry("920x730")
     root.mainloop()
     return 0
 

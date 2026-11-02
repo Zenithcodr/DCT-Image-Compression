@@ -1,10 +1,38 @@
-# Understanding Image Compression: A Beginner's Guide
+# Understanding Image Compression: A Teacher-Ready Course Guide
 
-This document is designed to explain the core concepts of Digital Image Processing (DIP), specifically how image compression works, in the simplest terms possible. It also includes answers to common questions about file sizes, formats, and the technology behind this tool.
+This document is designed to explain the core concepts of Digital Image Processing (DIP), specifically how image compression works, in clear and simple terms. It also serves as your **viva and evaluation presentation cheat sheet** for explaining the algorithms, flowchart, and numerical calculations to your instructor.
 
 ---
 
-## Part 1: Answering Your Doubts
+## Part 0: How to Present & Explain this Project to Your Teacher
+
+When presenting this project to your professor or examiner:
+
+1. **Launch the GUI:** Run `python app/gui.py` and open a sample image.
+2. **Demonstrate the Slider:** Drag $Q$ from 90 down to 10. Point out the visible blocking artifacts at low $Q$ and show how MSE increases while PSNR decreases.
+3. **Open the Pop-up Window:** Click **`[📘 Flowchart, Algorithms & Math (Pop-up)]`** in the top-right corner.
+4. **Walk through the 5 Tabs with the Teacher:**
+   - **Tab 1 (Flowchart):** Walk through the entire signal-processing path:
+     * *Level shift* (centers dynamic range around zero)
+     * *8x8 Block Partitioning*
+     * *2-D DCT* (converts spatial redundancy into frequency energy compaction)
+     * *Quantization* (the only lossy step: dividing by scaled JPEG luminance table and rounding)
+     * *Zig-zag Scan & RLE* (grouping low frequencies and encoding zero-runs)
+     * *Dequantization & IDCT* (reconstructing the spatial image)
+   - **Tab 2 (Algorithms):** Explain the $O(N^3)$ separable matrix form $F = D \cdot f \cdot D^T$ and the orthonormal basis vectors $D_{k, i}$.
+   - **Tab 3 (Formulas):** Point out the governing equations: DCT-II summation, libjpeg scale function $S(Q)$, MSE, and PSNR formulas.
+   - **Tab 4 (Live 8x8 Numerical Walkthrough):** This is the highlight of the presentation! Show the professor:
+     * The actual numbers in an $8 \times 8$ matrix.
+     * The DC value at $(0, 0)$ carrying over 90% of the block's energy.
+     * How dividing by $Q_{scaled}$ turns 70% to 90% of AC coefficients into exact zeros.
+     * The zig-zag vector and the run-length pairs.
+     * The reconstructed block and the local residual error $\Delta(x, y)$.
+   - **Tab 5 (Image Metrics Derivation):** Show the exact arithmetic of how total raw bytes, compressed bytes, compression ratio (CR), and PSNR are derived for the entire image.
+5. **Export the Report:** Click **`[💾 Export Complete Academic Report]`** in the pop-up to generate a full `.txt` document to submit alongside your assignment!
+
+---
+
+## Part 1: Answering Common Doubts & Viva Questions
 
 ### 1. Why does the image get blurry and blocky when I move the Q slider down?
 When you move the slider to lower numbers, you are lowering the **Quality factor (Q)**. 
@@ -78,4 +106,4 @@ This project is built entirely in Python using modern, open-source libraries.
 * **Python:** The core programming language running the logic.
 * **NumPy:** A powerful math library. Processing an image pixel-by-pixel is incredibly slow. NumPy allows us to do complex Matrix Math on thousands of 8x8 blocks instantly, keeping the software running fast.
 * **Pillow (PIL):** Python's standard Image Library. It is used to open files (JPG/PNG) from your hard drive, turn them into raw numbers for NumPy, and save them back to your computer.
-* **Tkinter:** The built-in toolkit for Python used to create the Graphical User Interface (GUI). It is what draws the windows, buttons, sliders, and image previews on your screen.
+* **Tkinter:** The built-in toolkit for Python used to create the Graphical User Interface (GUI). It is what draws the windows, buttons, sliders, image previews, and the comprehensive educational pop-up dialog.
