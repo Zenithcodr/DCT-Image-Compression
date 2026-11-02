@@ -28,6 +28,12 @@ from __future__ import annotations
 
 import os
 import sys
+
+# Ensure repository root is on sys.path so running directly via `python app/gui.py` works seamlessly
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -36,7 +42,11 @@ from PIL import Image, ImageTk
 
 from io_utils.io import load_image, make_comparison_grid, save_image
 from pipeline import compress_image
-from .theory_dialog import TheoryCalculationDialog
+
+try:
+    from app.theory_dialog import TheoryCalculationDialog
+except ImportError:
+    from theory_dialog import TheoryCalculationDialog
 
 
 def _to_tk_image(arr: np.ndarray, size: int = 360) -> ImageTk.PhotoImage:
